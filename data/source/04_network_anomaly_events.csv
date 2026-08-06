@@ -1,0 +1,118 @@
+event_id,site_id,timestamp,anomaly_type,severity
+1,SITE-001,2026-07-19 20:00:00,Throughput Degradation,Critical
+2,SITE-001,2026-07-20 12:00:00,Congestion,Warning
+3,SITE-002,2026-07-01 14:00:00,Throughput Degradation,Warning
+4,SITE-002,2026-07-09 10:00:00,Availability Drop,Warning
+5,SITE-003,2026-07-09 21:00:00,Call Drop Spike,Critical
+6,SITE-003,2026-07-20 20:00:00,Throughput Degradation,Warning
+7,SITE-004,2026-07-10 06:00:00,Congestion,Critical
+8,SITE-005,2026-07-07 01:00:00,Congestion,Critical
+9,SITE-005,2026-07-19 00:00:00,Throughput Degradation,Critical
+10,SITE-006,2026-07-14 00:00:00,Availability Drop,Warning
+11,SITE-007,2026-07-14 01:00:00,Throughput Degradation,Critical
+12,SITE-007,2026-07-18 00:00:00,Congestion,Warning
+13,SITE-008,2026-07-11 18:00:00,Throughput Degradation,Critical
+14,SITE-008,2026-07-17 15:00:00,Throughput Degradation,Warning
+15,SITE-008,2026-07-19 21:00:00,Throughput Degradation,Warning
+16,SITE-009,2026-07-12 12:00:00,Latency Spike,Warning
+17,SITE-010,2026-07-13 07:00:00,Throughput Degradation,Critical
+18,SITE-011,2026-07-08 22:00:00,Availability Drop,Critical
+19,SITE-011,2026-07-10 11:00:00,Call Drop Spike,Warning
+20,SITE-012,2026-07-05 04:00:00,Throughput Degradation,Warning
+21,SITE-012,2026-07-08 14:00:00,Throughput Degradation,Critical
+22,SITE-012,2026-07-08 17:00:00,Congestion,Critical
+23,SITE-013,2026-07-16 20:00:00,Congestion,Warning
+24,SITE-014,2026-07-03 13:00:00,Latency Spike,Critical
+25,SITE-014,2026-07-08 04:00:00,Throughput Degradation,Critical
+26,SITE-015,2026-07-02 09:00:00,Latency Spike,Critical
+27,SITE-015,2026-07-11 11:00:00,Throughput Degradation,Critical
+28,SITE-016,2026-07-05 07:00:00,Congestion,Critical
+29,SITE-017,2026-07-08 11:00:00,Call Drop Spike,Critical
+30,SITE-018,2026-07-06 12:00:00,Throughput Degradation,Critical
+31,SITE-019,2026-07-09 19:00:00,Throughput Degradation,Warning
+32,SITE-020,2026-07-01 00:00:00,Throughput Degradation,Critical
+33,SITE-020,2026-07-06 18:00:00,Latency Spike,Critical
+34,SITE-020,2026-07-15 08:00:00,Latency Spike,Critical
+35,SITE-021,2026-07-03 04:00:00,Congestion,Warning
+36,SITE-022,2026-07-15 15:00:00,Congestion,Critical
+37,SITE-022,2026-07-20 04:00:00,Throughput Degradation,Warning
+38,SITE-023,2026-07-04 11:00:00,Throughput Degradation,Warning
+39,SITE-023,2026-07-18 08:00:00,Call Drop Spike,Warning
+40,SITE-024,2026-07-12 22:00:00,Throughput Degradation,Critical
+41,SITE-025,2026-07-18 04:00:00,Latency Spike,Warning
+42,SITE-026,2026-07-09 09:00:00,Call Drop Spike,Critical
+43,SITE-026,2026-07-19 11:00:00,Availability Drop,Warning
+44,SITE-026,2026-07-20 01:00:00,Throughput Degradation,Warning
+45,SITE-027,2026-07-06 09:00:00,Availability Drop,Warning
+46,SITE-027,2026-07-19 15:00:00,Availability Drop,Critical
+47,SITE-028,2026-07-07 13:00:00,Throughput Degradation,Critical
+48,SITE-029,2026-07-04 02:00:00,Congestion,Critical
+49,SITE-030,2026-07-06 22:00:00,Latency Spike,Warning
+50,SITE-031,2026-07-07 23:00:00,Throughput Degradation,Warning
+51,SITE-032,2026-07-06 17:00:00,Latency Spike,Critical
+52,SITE-033,2026-07-01 09:00:00,Call Drop Spike,Warning
+53,SITE-033,2026-07-10 21:00:00,Congestion,Warning
+54,SITE-033,2026-07-12 17:00:00,Call Drop Spike,Critical
+55,SITE-034,2026-07-05 01:00:00,Congestion,Warning
+56,SITE-035,2026-07-13 00:00:00,Throughput Degradation,Critical
+57,SITE-035,2026-07-20 01:00:00,Latency Spike,Warning
+58,SITE-036,2026-07-12 10:00:00,Congestion,Warning
+59,SITE-037,2026-07-09 13:00:00,Call Drop Spike,Critical
+60,SITE-037,2026-07-11 20:00:00,Latency Spike,Warning
+61,SITE-037,2026-07-14 04:00:00,Throughput Degradation,Warning
+62,SITE-038,2026-07-09 15:00:00,Latency Spike,Critical
+63,SITE-038,2026-07-10 01:00:00,Latency Spike,Warning
+64,SITE-038,2026-07-17 10:00:00,Congestion,Critical
+65,SITE-039,2026-07-09 02:00:00,Congestion,Warning
+66,SITE-039,2026-07-10 01:00:00,Throughput Degradation,Warning
+67,SITE-039,2026-07-15 15:00:00,Latency Spike,Warning
+68,SITE-040,2026-07-17 22:00:00,Call Drop Spike,Critical
+69,SITE-040,2026-07-19 06:00:00,Availability Drop,Critical
+70,SITE-041,2026-07-06 04:00:00,Availability Drop,Warning
+71,SITE-041,2026-07-11 01:00:00,Call Drop Spike,Critical
+72,SITE-041,2026-07-20 14:00:00,Congestion,Critical
+73,SITE-042,2026-07-02 10:00:00,Call Drop Spike,Critical
+74,SITE-042,2026-07-08 16:00:00,Availability Drop,Critical
+75,SITE-042,2026-07-13 18:00:00,Throughput Degradation,Critical
+76,SITE-043,2026-07-01 00:00:00,Congestion,Warning
+77,SITE-043,2026-07-10 12:00:00,Throughput Degradation,Critical
+78,SITE-043,2026-07-11 14:00:00,Call Drop Spike,Critical
+79,SITE-044,2026-07-01 05:00:00,Latency Spike,Critical
+80,SITE-044,2026-07-09 14:00:00,Congestion,Critical
+81,SITE-044,2026-07-09 23:00:00,Throughput Degradation,Warning
+82,SITE-045,2026-07-02 14:00:00,Throughput Degradation,Critical
+83,SITE-045,2026-07-08 12:00:00,Congestion,Critical
+84,SITE-045,2026-07-10 05:00:00,Call Drop Spike,Warning
+85,SITE-046,2026-07-03 03:00:00,Availability Drop,Warning
+86,SITE-046,2026-07-08 03:00:00,Call Drop Spike,Critical
+87,SITE-046,2026-07-12 21:00:00,Availability Drop,Warning
+88,SITE-047,2026-07-02 03:00:00,Throughput Degradation,Critical
+89,SITE-047,2026-07-12 15:00:00,Latency Spike,Warning
+90,SITE-047,2026-07-14 05:00:00,Latency Spike,Warning
+91,SITE-048,2026-07-15 02:00:00,Availability Drop,Critical
+92,SITE-048,2026-07-19 03:00:00,Latency Spike,Warning
+93,SITE-048,2026-07-20 09:00:00,Availability Drop,Warning
+94,SITE-049,2026-07-02 07:00:00,Availability Drop,Warning
+95,SITE-049,2026-07-04 04:00:00,Congestion,Critical
+96,SITE-050,2026-07-07 13:00:00,Congestion,Critical
+97,SITE-051,2026-07-01 10:00:00,Availability Drop,Warning
+98,SITE-052,2026-07-06 20:00:00,Latency Spike,Warning
+99,SITE-052,2026-07-13 10:00:00,Availability Drop,Critical
+100,SITE-053,2026-07-07 12:00:00,Availability Drop,Critical
+101,SITE-053,2026-07-12 05:00:00,Latency Spike,Warning
+102,SITE-053,2026-07-12 15:00:00,Availability Drop,Warning
+103,SITE-054,2026-07-04 10:00:00,Availability Drop,Warning
+104,SITE-054,2026-07-12 07:00:00,Availability Drop,Warning
+105,SITE-055,2026-07-13 21:00:00,Throughput Degradation,Warning
+106,SITE-055,2026-07-19 03:00:00,Throughput Degradation,Critical
+107,SITE-056,2026-07-06 09:00:00,Latency Spike,Warning
+108,SITE-056,2026-07-10 23:00:00,Availability Drop,Critical
+109,SITE-057,2026-07-03 06:00:00,Availability Drop,Critical
+110,SITE-057,2026-07-07 17:00:00,Latency Spike,Warning
+111,SITE-058,2026-07-06 03:00:00,Congestion,Critical
+112,SITE-058,2026-07-10 19:00:00,Throughput Degradation,Critical
+113,SITE-058,2026-07-16 22:00:00,Call Drop Spike,Warning
+114,SITE-059,2026-07-12 23:00:00,Latency Spike,Critical
+115,SITE-060,2026-07-11 14:00:00,Throughput Degradation,Warning
+116,SITE-060,2026-07-13 17:00:00,Throughput Degradation,Critical
+117,SITE-060,2026-07-15 03:00:00,Latency Spike,Warning
