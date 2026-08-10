@@ -1,122 +1,245 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import { useEffect, useMemo, useState } from "react";
+import "./App.css";
+
+type Summary = {
+  total_sites: number;
+  total_anomalies: number;
+  critical_anomalies: number;
+  most_common_problem: string | null;
+  latest_measurement_time: string | null;
+};
+
+type Anomaly = {
+  event_id: string;
+  site_id: string;
+  site_name: string;
+  region: string;
+  technology: string;
+  timestamp: string;
+  anomaly_type: string;
+  severity: string;
+};
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [summary, setSummary] = useState<Summary | null>(null);
+  const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+
+  const [region, setRegion] = useState("");
+  const [technology, setTechnology] = useState("");
+  const [severity, setSeverity] = useState("");
+
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    fetch("http://127.0.0.1:8000/api/summary")
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to load summary");
+        }
+
+        return response.json();
+      })
+      .then((data) => {
+        setSummary(data);
+      })
+      .catch((err) => {
+        setError(err.message);
+      });
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams();
+
+    if (region) {
+      params.append("region", region);
+    }
+
+    if (technology) {
+      params.append("technology", technology);
+    }
+
+    if (severity) {
+      params.append("severity", severity);
+    }
+
+    const queryString = params.toString();
+
+    const url = queryString
+      ? `http://127.0.0.1:8000/api/anomalies?${queryString}`
+      : "http://127.0.0.1:8000/api/anomalies";
+
+    fetch(url)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to load anomalies");
+        }
+
+        return response.json();
+      })
+      .then((data) => {
+        setAnomalies(data);
+      })
+      .catch((err) => {
+        setError(err.message);
+      });
+  }, [region, technology, severity]);
+
+  const regions = useMemo(() => {
+    return Array.from(
+      new Set(anomalies.map((anomaly) => anomaly.region))
+    ).sort();
+  }, [anomalies]);
+
+  const technologies = useMemo(() => {
+    return Array.from(
+      new Set(anomalies.map((anomaly) => anomaly.technology))
+    ).sort();
+  }, [anomalies]);
+
+  if (error) {
+    return <div className="message">Error: {error}</div>;
+  }
+
+  if (!summary) {
+    return <div className="message">Loading dashboard...</div>;
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="dashboard">
+      <h1>Telecom Cell Health Monitor</h1>
+      <p className="subtitle">Network Operations Dashboard</p>
+
+      <div className="cards">
+        <div className="card">
+          <h2>Total Sites</h2>
+          <p>{summary.total_sites}</p>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
+
+        <div className="card">
+          <h2>Anomalies</h2>
+          <p>{summary.total_anomalies}</p>
         </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+
+        <div className="card">
+          <h2>Critical</h2>
+          <p>{summary.critical_anomalies}</p>
+        </div>
+
+        <div className="card">
+          <h2>Most Common Problem</h2>
+          <p>{summary.most_common_problem ?? "None"}</p>
+        </div>
+      </div>
+
+      <div className="latest">
+        Latest measurement: {summary.latest_measurement_time ?? "Unknown"}
+      </div>
+
+      <section className="anomaly-section">
+        <div className="section-header">
+          <h2>Recent Anomalies</h2>
+          <span>{anomalies.length} records</span>
+        </div>
+
+        <div className="filters">
+          <label>
+            Region
+            <select
+              value={region}
+              onChange={(event) => setRegion(event.target.value)}
+            >
+              <option value="">All</option>
+
+              {regions.map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Technology
+            <select
+              value={technology}
+              onChange={(event) => setTechnology(event.target.value)}
+            >
+              <option value="">All</option>
+              <option value="2G">2G</option>
+              <option value="4G">4G</option>
+              <option value="5G">5G</option>
+            </select>
+          </label>
+
+          <label>
+            Severity
+            <select
+              value={severity}
+              onChange={(event) => setSeverity(event.target.value)}
+            >
+              <option value="">All</option>
+              <option value="Critical">Critical</option>
+              <option value="Warning">Warning</option>
+            </select>
+          </label>
+
+          <button
+            className="reset-button"
+            onClick={() => {
+              setRegion("");
+              setTechnology("");
+              setSeverity("");
+            }}
+          >
+            Reset
+          </button>
+        </div>
+
+        <div className="table-wrapper">
+          <table className="anomaly-table">
+            <thead>
+              <tr>
+                <th>Site</th>
+                <th>Region</th>
+                <th>Technology</th>
+                <th>Time</th>
+                <th>Anomaly Type</th>
+                <th>Severity</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {anomalies.slice(0, 20).map((anomaly) => (
+                <tr key={anomaly.event_id}>
+                  <td>
+                    <strong>{anomaly.site_id}</strong>
+                    <div className="site-name">{anomaly.site_name}</div>
+                  </td>
+
+                  <td>{anomaly.region}</td>
+                  <td>{anomaly.technology}</td>
+                  <td>{anomaly.timestamp}</td>
+                  <td>{anomaly.anomaly_type}</td>
+
+                  <td>
+                    <span
+                      className={`severity-badge ${anomaly.severity.toLowerCase()}`}
+                    >
+                      {anomaly.severity}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+    </div>
+  );
 }
 
-export default App
+export default App;
+
+
+
+
