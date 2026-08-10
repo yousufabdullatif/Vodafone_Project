@@ -80,6 +80,7 @@ def create_database():
     cursor = connection.cursor()
 
     cursor.executescript("""
+    DROP TABLE IF EXISTS detected_anomalies;
     DROP TABLE IF EXISTS kpi_measurements;
     DROP TABLE IF EXISTS anomaly_events;
     DROP TABLE IF EXISTS sites;
@@ -126,6 +127,23 @@ def create_database():
             REFERENCES anomaly_events(event_id),
 
         UNIQUE (site_id, timestamp)
+    );
+
+    CREATE TABLE detected_anomalies (
+        detection_id INTEGER PRIMARY KEY AUTOINCREMENT,
+        site_id TEXT NOT NULL,
+        timestamp TEXT NOT NULL,
+        method TEXT NOT NULL,
+        severity TEXT NOT NULL,
+        main_kpi TEXT NOT NULL,
+        anomaly_score REAL,
+        explanation TEXT NOT NULL,
+        detected_at TEXT NOT NULL,
+
+        UNIQUE (site_id, timestamp, method),
+
+        FOREIGN KEY (site_id)
+            REFERENCES sites(site_id)
     );
     """)
 
