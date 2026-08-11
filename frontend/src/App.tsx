@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
 type Summary = {
@@ -10,28 +10,42 @@ type Summary = {
 };
 
 type Anomaly = {
-  event_id: string;
+  detection_id: number;
   site_id: string;
   site_name: string;
   region: string;
   technology: string;
   timestamp: string;
-  anomaly_type: string;
+  method: string;
   severity: string;
+  main_kpi: string;
+  anomaly_score: number | null;
+  explanation: string;
 };
+
+type Region = {
+  region_id: string;
+  region_name: string;
+  site_count: number;
+};
+
+const API_BASE = "http://127.0.0.1:8000";
 
 function App() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
+  const [regionList, setRegionList] = useState<Region[]>([]);
 
   const [region, setRegion] = useState("");
   const [technology, setTechnology] = useState("");
   const [severity, setSeverity] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
 
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8000/api/summary")
+    fetch(`${API_BASE}/api/summary`)
       .then((response) => {
         if (!response.ok) {
           throw new Error("Failed to load summary");
@@ -41,6 +55,23 @@ function App() {
       })
       .then((data) => {
         setSummary(data);
+      })
+      .catch((err) => {
+        setError(err.message);
+      });
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/regions`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Failed to load regions");
+        }
+
+        return response.json();
+      })
+      .then((data) => {
+        setRegionList(data);
       })
       .catch((err) => {
         setError(err.message);
@@ -62,11 +93,19 @@ function App() {
       params.append("severity", severity);
     }
 
+    if (dateFrom) {
+      params.append("date_from", dateFrom + " 00:00:00");
+    }
+
+    if (dateTo) {
+      params.append("date_to", dateTo + " 23:59:59");
+    }
+
     const queryString = params.toString();
 
     const url = queryString
-      ? `http://127.0.0.1:8000/api/anomalies?${queryString}`
-      : "http://127.0.0.1:8000/api/anomalies";
+      ? `${API_BASE}/api/anomalies?${queryString}`
+      : `${API_BASE}/api/anomalies`;
 
     fetch(url)
       .then((response) => {
@@ -82,19 +121,7 @@ function App() {
       .catch((err) => {
         setError(err.message);
       });
-  }, [region, technology, severity]);
-
-  const regions = useMemo(() => {
-    return Array.from(
-      new Set(anomalies.map((anomaly) => anomaly.region))
-    ).sort();
-  }, [anomalies]);
-
-  const technologies = useMemo(() => {
-    return Array.from(
-      new Set(anomalies.map((anomaly) => anomaly.technology))
-    ).sort();
-  }, [anomalies]);
+  }, [region, technology, severity, dateFrom, dateTo]);
 
   if (error) {
     return <div className="message">Error: {error}</div>;
@@ -116,7 +143,7 @@ function App() {
         </div>
 
         <div className="card">
-          <h2>Anomalies</h2>
+          <h2>Detected Anomalies</h2>
           <p>{summary.total_anomalies}</p>
         </div>
 
@@ -137,8 +164,10 @@ function App() {
 
       <section className="anomaly-section">
         <div className="section-header">
-          <h2>Recent Anomalies</h2>
-          <span>{anomalies.length} records</span>
+          <h2>Detected Anomalies</h2>
+          <span>
+            Showing {Math.min(anomalies.length, 20)} of {anomalies.length} records
+          </span>
         </div>
 
         <div className="filters">
@@ -150,9 +179,9 @@ function App() {
             >
               <option value="">All</option>
 
-              {regions.map((item) => (
-                <option key={item} value={item}>
-                  {item}
+              {regionList.map((item) => (
+                <option key={item.region_id} value={item.region_name}>
+                  {item.region_name}
                 </option>
               ))}
             </select>
@@ -183,12 +212,32 @@ function App() {
             </select>
           </label>
 
+          <label>
+            From
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+            />
+          </label>
+
+          <label>
+            To
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+            />
+          </label>
+
           <button
             className="reset-button"
             onClick={() => {
               setRegion("");
               setTechnology("");
               setSeverity("");
+              setDateFrom("");
+              setDateTo("");
             }}
           >
             Reset
@@ -202,15 +251,16 @@ function App() {
                 <th>Site</th>
                 <th>Region</th>
                 <th>Technology</th>
-                <th>Time</th>
-                <th>Anomaly Type</th>
+                <th>Detected</th>
+                <th>Main KPI</th>
                 <th>Severity</th>
+                <th>Explanation</th>
               </tr>
             </thead>
 
             <tbody>
               {anomalies.slice(0, 20).map((anomaly) => (
-                <tr key={anomaly.event_id}>
+                <tr key={anomaly.detection_id}>
                   <td>
                     <strong>{anomaly.site_id}</strong>
                     <div className="site-name">{anomaly.site_name}</div>
@@ -219,7 +269,7 @@ function App() {
                   <td>{anomaly.region}</td>
                   <td>{anomaly.technology}</td>
                   <td>{anomaly.timestamp}</td>
-                  <td>{anomaly.anomaly_type}</td>
+                  <td>{anomaly.main_kpi}</td>
 
                   <td>
                     <span
@@ -228,6 +278,8 @@ function App() {
                       {anomaly.severity}
                     </span>
                   </td>
+
+                  <td className="explanation">{anomaly.explanation}</td>
                 </tr>
               ))}
             </tbody>
@@ -239,7 +291,3 @@ function App() {
 }
 
 export default App;
-
-
-
-
