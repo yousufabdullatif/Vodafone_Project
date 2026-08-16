@@ -298,4 +298,62 @@ def run_detections(request: DetectionRequest):
     }
 
 
+@app.get("/api/model/metrics")
+def get_model_metrics():
+    connection = get_db_connection()
 
+    truth = connection.execute("""
+        SELECT site_id, timestamp
+        FROM kpi_measurements
+        WHERE event_id IS NOT NULL
+    """).fetchall()
+
+    truth_set = {(row["site_id"], row["timestamp"]) for row in truth}
+
+    methods = connection.execute("""
+        SELECT DISTINCT method FROM detected_anomalies ORDER BY method
+    """).fetchall()
+
+    results = []
+
+    for method_row in methods:
+        method = method_row["method"]
+
+        detections = connection.execute("""
+            SELECT site_id, timestamp
+            FROM detected_anomalies
+            WHERE method = ?
+        """, (method,)).fetchall()
+
+        predicted_set = {(row["site_id"], row["timestamp"]) for row in detections}
+
+        true_positives = len(predicted_set & truth_set)
+        false_positives = len(predicted_set - truth_set)
+        false_negatives = len(truth_set - predicted_set)
+
+        precision = (
+            true_positives / (true_positives + false_positives)
+            if (true_positives + false_positives) > 0
+            else 0.0
+        )
+
+        recall = (
+            true_positives / (true_positives + false_negatives)
+            if (true_positives + false_negatives) > 0
+            else 0.0
+        )
+
+        results.append({
+            "method": method,
+            "true_anomalies": len(truth_set),
+            "predicted": len(predicted_set),
+            "true_positives": true_positives,
+            "false_positives": false_positives,
+            "false_negatives": false_negatives,
+            "precision": round(precision, 4),
+            "recall": round(recall, 4)
+        })
+
+    connection.close()
+
+    return results
