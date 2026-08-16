@@ -1,3 +1,12 @@
+from pydantic import BaseModel
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+class DetectionRequest(BaseModel):
+    method: str
+
 from fastapi import FastAPI
 
 from fastapi.middleware.cors import CORSMiddleware
@@ -209,3 +218,84 @@ def get_regions():
         }
         for row in rows
     ]
+
+
+@app.post("/api/detections/run")
+def run_detections(request: DetectionRequest):
+    allowed_methods = {"rule", "isolation_forest", "both"}
+
+    if request.method not in allowed_methods:
+        return {
+            "error": "Invalid method. Use rule, isolation_forest, or both."
+        }
+
+    base_dir = Path(__file__).resolve().parent.parent.parent
+    scripts_dir = base_dir / "scripts"
+
+    start_time = time.time()
+
+    methods_to_run = (
+        ["rule", "isolation_forest"]
+        if request.method == "both"
+        else [request.method]
+    )
+
+    results = []
+
+    for method in methods_to_run:
+        if method == "rule":
+            script_path = scripts_dir / "rule_detector.py"
+        else:
+            script_path = scripts_dir / "isolation_forest_detector.py"
+
+        completed = subprocess.run(
+            [sys.executable, str(script_path)],
+            capture_output=True,
+            text=True
+        )
+
+        if completed.returncode != 0:
+            return {
+                "method": method,
+                "error": completed.stderr
+            }
+
+        results.append({
+            "method": method,
+            "output": completed.stdout
+        })
+
+    duration = round(time.time() - start_time, 3)
+
+    connection = get_db_connection()
+
+    total_rows = connection.execute(
+        "SELECT COUNT(*) FROM kpi_measurements"
+    ).fetchone()[0]
+
+    detections_stored = connection.execute(
+        """
+        SELECT COUNT(*)
+        FROM detected_anomalies
+        WHERE method IN (?, ?)
+        """,
+        (
+            "rule" if request.method in ("rule", "both") else "",
+            "isolation_forest"
+            if request.method in ("isolation_forest", "both")
+            else ""
+        )
+    ).fetchone()[0]
+
+    connection.close()
+
+    return {
+        "method": request.method,
+        "rows_analysed": total_rows,
+        "detections_stored": detections_stored,
+        "duration_seconds": duration,
+        "details": results
+    }
+
+
+
