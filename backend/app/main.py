@@ -7,7 +7,7 @@ from pathlib import Path
 class DetectionRequest(BaseModel):
     method: str
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -121,6 +121,8 @@ def get_anomalies(
     technology: str | None = None,
     date_from: str | None = None,
     date_to: str | None = None,
+    method: str | None = None,
+    site_id: str | None = None,
     limit: int = 200
 ):
     connection = get_db_connection()
@@ -167,6 +169,16 @@ def get_anomalies(
     if date_to:
         query += " AND d.timestamp <= ?"
         params.append(date_to)
+
+    if method:
+        query += " AND d.method = ?"
+        params.append(method)
+
+    if site_id:
+        query += " AND d.site_id = ?"
+        params.append(site_id)
+
+
 
     query += " ORDER BY d.timestamp DESC LIMIT ?"
     params.append(limit)
@@ -357,3 +369,123 @@ def get_model_metrics():
     connection.close()
 
     return results
+
+@app.get("/api/sites/{site_id}")
+def get_site(site_id: str):
+    connection = get_db_connection()
+
+    site = connection.execute("""
+        SELECT
+            s.site_id,
+            s.site_name,
+            s.technology,
+            r.region_id,
+            r.region_name
+        FROM sites s
+        JOIN regions r
+            ON s.region_id = r.region_id
+        WHERE s.site_id = ?
+    """, (site_id,)).fetchone()
+
+    if site is None:
+        connection.close()
+        raise HTTPException(
+            status_code=404,
+            detail=f"Site not found: {site_id}"
+        )
+
+    latest = connection.execute("""
+        SELECT
+            timestamp,
+            availability_pct,
+            throughput_mbps,
+            latency_ms,
+            call_drop_rate_pct,
+            active_users
+        FROM kpi_measurements
+        WHERE site_id = ?
+        ORDER BY timestamp DESC
+        LIMIT 1
+    """, (site_id,)).fetchone()
+
+    detections = connection.execute("""
+        SELECT COUNT(*) FROM detected_anomalies WHERE site_id = ?
+    """, (site_id,)).fetchone()[0]
+
+    connection.close()
+
+    return {
+        "site_id": site["site_id"],
+        "site_name": site["site_name"],
+        "region_id": site["region_id"],
+        "region_name": site["region_name"],
+        "technology": site["technology"],
+        "detection_count": detections,
+        "latest_kpis": {
+            "timestamp": latest["timestamp"],
+            "availability_pct": latest["availability_pct"],
+            "throughput_mbps": latest["throughput_mbps"],
+            "latency_ms": latest["latency_ms"],
+            "call_drop_rate_pct": latest["call_drop_rate_pct"],
+            "active_users": latest["active_users"]
+        } if latest else None
+    }
+
+@app.get("/api/sites/{site_id}/measurements")
+def get_site_measurements(
+    site_id: str,
+    date_from: str | None = None,
+    date_to: str | None = None
+):
+    connection = get_db_connection()
+
+    site = connection.execute(
+        "SELECT site_id FROM sites WHERE site_id = ?", (site_id,)
+    ).fetchone()
+
+    if site is None:
+        connection.close()
+        raise HTTPException(
+            status_code=404,
+            detail=f"Site not found: {site_id}"
+        )
+
+    query = """
+        SELECT
+            timestamp,
+            availability_pct,
+            throughput_mbps,
+            latency_ms,
+            call_drop_rate_pct,
+            active_users
+        FROM kpi_measurements
+        WHERE site_id = ?
+    """
+
+    params = [site_id]
+
+    if date_from:
+        query += " AND timestamp >= ?"
+        params.append(date_from)
+
+    if date_to:
+        query += " AND timestamp <= ?"
+        params.append(date_to)
+
+    query += " ORDER BY timestamp"
+
+    rows = connection.execute(query, params).fetchall()
+
+    connection.close()
+
+    return [
+        {
+            "timestamp": row["timestamp"],
+            "availability_pct": row["availability_pct"],
+            "throughput_mbps": row["throughput_mbps"],
+            "latency_ms": row["latency_ms"],
+            "call_drop_rate_pct": row["call_drop_rate_pct"],
+            "active_users": row["active_users"]
+        }
+        for row in rows
+    ]
