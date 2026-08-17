@@ -154,3 +154,16 @@
 }
 
 
+.chart-container {
+  height: 250px;
+  width: 100%;
+  margin-bottom: 24px;
+}
+
+.chart-card {
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
