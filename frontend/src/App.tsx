@@ -1,5 +1,18 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+
 import "./App.css";
+
+const API_BASE_URL = "http://127.0.0.1:8000";
+
 
 type Summary = {
   total_sites: number;
@@ -9,32 +22,60 @@ type Summary = {
   latest_measurement_time: string | null;
 };
 
-type Anomaly = {
-  detection_id: number;
-  site_id: string;
-  site_name: string;
-  region: string;
-  technology: string;
-  timestamp: string;
-  method: string;
-  severity: string;
-  main_kpi: string;
-  anomaly_score: number | null;
-  explanation: string;
-};
 
 type Region = {
   region_id: string;
   region_name: string;
-  site_count: number;
+  site_count?: number;
 };
 
-const API_BASE = "http://127.0.0.1:8000";
+
+type Anomaly = {
+  detection_id?: number;
+  event_id?: string;
+  site_id: string;
+  site_name?: string;
+  region?: string;
+  region_name?: string;
+  technology?: string;
+  timestamp?: string;
+  detected_time?: string;
+  main_kpi?: string;
+  anomaly_type?: string;
+  severity: string;
+  explanation?: string;
+};
+
+
+type SiteDetails = {
+  site_id: string;
+  site_name: string;
+  region?: string;
+  region_name?: string;
+  technology: string;
+
+  availability_pct?: number;
+  throughput_mbps?: number;
+  latency_ms?: number;
+  call_drop_rate_pct?: number;
+  active_users?: number;
+};
+
+
+type Measurement = {
+  timestamp: string;
+  availability_pct: number;
+  throughput_mbps: number;
+  latency_ms: number;
+  call_drop_rate_pct: number;
+  active_users: number;
+};
+
 
 function App() {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [anomalies, setAnomalies] = useState<Anomaly[]>([]);
-  const [regionList, setRegionList] = useState<Region[]>([]);
+  const [regions, setRegions] = useState<Region[]>([]);
 
   const [region, setRegion] = useState("");
   const [technology, setTechnology] = useState("");
@@ -42,41 +83,60 @@ function App() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
 
-  const [error, setError] = useState("");
+  const [selectedSiteId, setSelectedSiteId] = useState<string | null>(
+    null
+  );
+
+  const [siteDetails, setSiteDetails] =
+    useState<SiteDetails | null>(null);
+
+  const [measurements, setMeasurements] =
+    useState<Measurement[]>([]);
+
+  const [siteLoading, setSiteLoading] = useState(false);
+  const [siteError, setSiteError] = useState("");
+
+  const [dashboardLoading, setDashboardLoading] =
+    useState(true);
+
+  const [dashboardError, setDashboardError] =
+    useState("");
+
+
+  // ---------------------------------------------------------
+  // DASHBOARD DATA
+  // ---------------------------------------------------------
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/summary`)
-      .then((response) => {
+    Promise.all([
+      fetch(`${API_BASE_URL}/api/summary`).then((response) => {
         if (!response.ok) {
           throw new Error("Failed to load summary");
         }
 
         return response.json();
-      })
-      .then((data) => {
-        setSummary(data);
-      })
-      .catch((err) => {
-        setError(err.message);
-      });
-  }, []);
+      }),
 
-  useEffect(() => {
-    fetch(`${API_BASE}/api/regions`)
-      .then((response) => {
+      fetch(`${API_BASE_URL}/api/regions`).then((response) => {
         if (!response.ok) {
           throw new Error("Failed to load regions");
         }
 
         return response.json();
+      }),
+    ])
+      .then(([summaryData, regionsData]) => {
+        setSummary(summaryData);
+        setRegions(regionsData);
       })
-      .then((data) => {
-        setRegionList(data);
+      .catch((error) => {
+        setDashboardError(error.message);
       })
-      .catch((err) => {
-        setError(err.message);
+      .finally(() => {
+        setDashboardLoading(false);
       });
   }, []);
+
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -94,18 +154,17 @@ function App() {
     }
 
     if (dateFrom) {
-      params.append("date_from", dateFrom + " 00:00:00");
+      params.append("date_from", dateFrom);
     }
 
     if (dateTo) {
-      params.append("date_to", dateTo + " 23:59:59");
+      params.append("date_to", dateTo);
     }
 
-    const queryString = params.toString();
+    params.append("limit", "5000");
 
-    const url = queryString
-      ? `${API_BASE}/api/anomalies?${queryString}`
-      : `${API_BASE}/api/anomalies`;
+    const url =
+      `${API_BASE_URL}/api/anomalies?${params.toString()}`;
 
     fetch(url)
       .then((response) => {
@@ -118,23 +177,446 @@ function App() {
       .then((data) => {
         setAnomalies(data);
       })
-      .catch((err) => {
-        setError(err.message);
+      .catch((error) => {
+        setDashboardError(error.message);
       });
-  }, [region, technology, severity, dateFrom, dateTo]);
+  }, [
+    region,
+    technology,
+    severity,
+    dateFrom,
+    dateTo,
+  ]);
 
-  if (error) {
-    return <div className="message">Error: {error}</div>;
+
+  // ---------------------------------------------------------
+  // SITE DETAILS DATA
+  // ---------------------------------------------------------
+
+  useEffect(() => {
+    if (!selectedSiteId) {
+      return;
+    }
+
+    setSiteLoading(true);
+    setSiteError("");
+    setSiteDetails(null);
+    setMeasurements([]);
+
+    Promise.all([
+      fetch(
+        `${API_BASE_URL}/api/sites/${selectedSiteId}`
+      ).then((response) => {
+        if (response.status === 404) {
+          throw new Error("Site not found");
+        }
+
+        if (!response.ok) {
+          throw new Error("Failed to load site details");
+        }
+
+        return response.json();
+      }),
+
+      fetch(
+        `${API_BASE_URL}/api/sites/${selectedSiteId}/measurements`
+      ).then((response) => {
+        if (!response.ok) {
+          throw new Error(
+            "Failed to load site measurements"
+          );
+        }
+
+        return response.json();
+      }),
+    ])
+      .then(([siteData, measurementData]) => {
+        setSiteDetails(siteData);
+        setMeasurements(measurementData);
+      })
+      .catch((error) => {
+        setSiteError(error.message);
+      })
+      .finally(() => {
+        setSiteLoading(false);
+      });
+  }, [selectedSiteId]);
+
+
+  // ---------------------------------------------------------
+  // ANOMALIES FOR SELECTED SITE
+  // ---------------------------------------------------------
+
+  const selectedSiteAnomalies = useMemo(() => {
+    if (!selectedSiteId) {
+      return [];
+    }
+
+    return anomalies.filter(
+      (anomaly) => anomaly.site_id === selectedSiteId
+    );
+  }, [anomalies, selectedSiteId]);
+
+
+  // ---------------------------------------------------------
+  // SITE DETAILS PAGE
+  // ---------------------------------------------------------
+
+  if (selectedSiteId) {
+    if (siteLoading) {
+      return (
+        <div className="message">
+          Loading site details...
+        </div>
+      );
+    }
+
+    if (siteError) {
+      return (
+        <div className="site-details">
+          <button
+            className="back-button"
+            onClick={() => setSelectedSiteId(null)}
+          >
+            ← Back to Dashboard
+          </button>
+
+          <div className="error-message">
+            Error: {siteError}
+          </div>
+        </div>
+      );
+    }
+
+    if (!siteDetails) {
+      return (
+        <div className="message">
+          No site information available.
+        </div>
+      );
+    }
+
+    const siteRegion =
+      siteDetails.region ??
+      siteDetails.region_name ??
+      "Unknown";
+
+    return (
+      <div className="site-details">
+        <button
+          className="back-button"
+          onClick={() => setSelectedSiteId(null)}
+        >
+          ← Back to Dashboard
+        </button>
+
+        <div className="site-header">
+          <div>
+            <h1>{siteDetails.site_name}</h1>
+
+            <p className="site-id">
+              {siteDetails.site_id}
+            </p>
+          </div>
+
+          <div className="site-meta">
+            <div>
+              <span>Region</span>
+              <strong>{siteRegion}</strong>
+            </div>
+
+            <div>
+              <span>Technology</span>
+              <strong>
+                {siteDetails.technology}
+              </strong>
+            </div>
+          </div>
+        </div>
+
+
+        <section className="details-section">
+          <h2>KPI Trends</h2>
+
+          <p className="section-description">
+            {measurements.length} hourly measurements
+          </p>
+
+
+          <div className="charts-grid">
+
+            <div className="chart-card">
+              <h3>Availability (%)</h3>
+
+              <div className="chart-container">
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                >
+                  <LineChart data={measurements}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                    />
+
+                    <XAxis
+                      dataKey="timestamp"
+                      minTickGap={50}
+                    />
+
+                    <YAxis />
+
+                    <Tooltip />
+
+                    <Line
+                      type="monotone"
+                      dataKey="availability_pct"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+
+            <div className="chart-card">
+              <h3>Throughput (Mbps)</h3>
+
+              <div className="chart-container">
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                >
+                  <LineChart data={measurements}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                    />
+
+                    <XAxis
+                      dataKey="timestamp"
+                      minTickGap={50}
+                    />
+
+                    <YAxis />
+
+                    <Tooltip />
+
+                    <Line
+                      type="monotone"
+                      dataKey="throughput_mbps"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+
+            <div className="chart-card">
+              <h3>Latency (ms)</h3>
+
+              <div className="chart-container">
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                >
+                  <LineChart data={measurements}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                    />
+
+                    <XAxis
+                      dataKey="timestamp"
+                      minTickGap={50}
+                    />
+
+                    <YAxis />
+
+                    <Tooltip />
+
+                    <Line
+                      type="monotone"
+                      dataKey="latency_ms"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+
+            <div className="chart-card">
+              <h3>Call Drop Rate (%)</h3>
+
+              <div className="chart-container">
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                >
+                  <LineChart data={measurements}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                    />
+
+                    <XAxis
+                      dataKey="timestamp"
+                      minTickGap={50}
+                    />
+
+                    <YAxis />
+
+                    <Tooltip />
+
+                    <Line
+                      type="monotone"
+                      dataKey="call_drop_rate_pct"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+
+            <div className="chart-card">
+              <h3>Active Users</h3>
+
+              <div className="chart-container">
+                <ResponsiveContainer
+                  width="100%"
+                  height="100%"
+                >
+                  <LineChart data={measurements}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                    />
+
+                    <XAxis
+                      dataKey="timestamp"
+                      minTickGap={50}
+                    />
+
+                    <YAxis />
+
+                    <Tooltip />
+
+                    <Line
+                      type="monotone"
+                      dataKey="active_users"
+                      dot={false}
+                      strokeWidth={2}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+          </div>
+        </section>
+
+
+        <section className="details-section">
+          <h2>Detected Anomalies</h2>
+
+          {selectedSiteAnomalies.length === 0 ? (
+            <p>
+              No detected anomalies available for this site.
+            </p>
+          ) : (
+            <div className="table-wrapper">
+              <table className="anomaly-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Severity</th>
+                    <th>Main KPI</th>
+                    <th>Explanation</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  {selectedSiteAnomalies.map(
+                    (anomaly, index) => (
+                      <tr
+                        key={
+                          anomaly.detection_id ??
+                          anomaly.event_id ??
+                          index
+                        }
+                      >
+                        <td>
+                          {anomaly.detected_time ??
+                            anomaly.timestamp ??
+                            "-"}
+                        </td>
+
+                        <td>
+                          {anomaly.severity}
+                        </td>
+
+                        <td>
+                          {anomaly.main_kpi ??
+                            anomaly.anomaly_type ??
+                            "-"}
+                        </td>
+
+                        <td>
+                          {anomaly.explanation ??
+                            "-"}
+                        </td>
+                      </tr>
+                    )
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      </div>
+    );
+  }
+
+
+  // ---------------------------------------------------------
+  // DASHBOARD
+  // ---------------------------------------------------------
+
+  if (dashboardLoading) {
+    return (
+      <div className="message">
+        Loading dashboard...
+      </div>
+    );
+  }
+
+  if (dashboardError) {
+    return (
+      <div className="message">
+        Error: {dashboardError}
+      </div>
+    );
   }
 
   if (!summary) {
-    return <div className="message">Loading dashboard...</div>;
+    return (
+      <div className="message">
+        No dashboard data available.
+      </div>
+    );
   }
+
 
   return (
     <div className="dashboard">
       <h1>Telecom Cell Health Monitor</h1>
-      <p className="subtitle">Network Operations Dashboard</p>
+
+      <p className="subtitle">
+        Network Operations Dashboard
+      </p>
+
 
       <div className="cards">
         <div className="card">
@@ -143,7 +625,7 @@ function App() {
         </div>
 
         <div className="card">
-          <h2>Detected Anomalies</h2>
+          <h2>Anomalies</h2>
           <p>{summary.total_anomalies}</p>
         </div>
 
@@ -154,95 +636,123 @@ function App() {
 
         <div className="card">
           <h2>Most Common Problem</h2>
-          <p>{summary.most_common_problem ?? "None"}</p>
+
+          <p>
+            {summary.most_common_problem ?? "None"}
+          </p>
         </div>
       </div>
+
 
       <div className="latest">
-        Latest measurement: {summary.latest_measurement_time ?? "Unknown"}
+        Latest measurement:{" "}
+        {summary.latest_measurement_time ?? "Unknown"}
       </div>
 
+
       <section className="anomaly-section">
-        <div className="section-header">
+        <div className="section-title-row">
           <h2>Detected Anomalies</h2>
-          <span>
-            Showing {Math.min(anomalies.length, 20)} of {anomalies.length} records
-          </span>
         </div>
 
+
         <div className="filters">
+
           <label>
             Region
+
             <select
               value={region}
-              onChange={(event) => setRegion(event.target.value)}
+              onChange={(event) =>
+                setRegion(event.target.value)
+              }
             >
-              <option value="">All</option>
+              <option value="">
+                All Regions
+              </option>
 
-              {regionList.map((item) => (
-                <option key={item.region_id} value={item.region_name}>
+              {regions.map((item) => (
+                <option
+                  key={item.region_id}
+                  value={item.region_name}
+                >
                   {item.region_name}
                 </option>
               ))}
             </select>
           </label>
 
+
           <label>
             Technology
+
             <select
               value={technology}
-              onChange={(event) => setTechnology(event.target.value)}
+              onChange={(event) =>
+                setTechnology(event.target.value)
+              }
             >
-              <option value="">All</option>
-              <option value="2G">2G</option>
+              <option value="">
+                All Technologies
+              </option>
+
               <option value="4G">4G</option>
               <option value="5G">5G</option>
             </select>
           </label>
 
+
           <label>
             Severity
+
             <select
               value={severity}
-              onChange={(event) => setSeverity(event.target.value)}
+              onChange={(event) =>
+                setSeverity(event.target.value)
+              }
             >
-              <option value="">All</option>
-              <option value="Critical">Critical</option>
-              <option value="Warning">Warning</option>
+              <option value="">
+                All Severities
+              </option>
+
+              <option value="Critical">
+                Critical
+              </option>
+
+              <option value="Warning">
+                Warning
+              </option>
             </select>
           </label>
 
+
           <label>
             From
+
             <input
               type="date"
               value={dateFrom}
-              onChange={(event) => setDateFrom(event.target.value)}
+              onChange={(event) =>
+                setDateFrom(event.target.value)
+              }
             />
           </label>
+
 
           <label>
             To
+
             <input
               type="date"
               value={dateTo}
-              onChange={(event) => setDateTo(event.target.value)}
+              onChange={(event) =>
+                setDateTo(event.target.value)
+              }
             />
           </label>
 
-          <button
-            className="reset-button"
-            onClick={() => {
-              setRegion("");
-              setTechnology("");
-              setSeverity("");
-              setDateFrom("");
-              setDateTo("");
-            }}
-          >
-            Reset
-          </button>
         </div>
+
 
         <div className="table-wrapper">
           <table className="anomaly-table">
@@ -251,7 +761,7 @@ function App() {
                 <th>Site</th>
                 <th>Region</th>
                 <th>Technology</th>
-                <th>Detected</th>
+                <th>Detected Time</th>
                 <th>Main KPI</th>
                 <th>Severity</th>
                 <th>Explanation</th>
@@ -259,27 +769,59 @@ function App() {
             </thead>
 
             <tbody>
-              {anomalies.slice(0, 20).map((anomaly) => (
-                <tr key={anomaly.detection_id}>
+              {anomalies.map((anomaly, index) => (
+                <tr
+                  key={
+                    anomaly.detection_id ??
+                    anomaly.event_id ??
+                    index
+                  }
+                  className="clickable-row"
+                  onClick={() =>
+                    setSelectedSiteId(
+                      anomaly.site_id
+                    )
+                  }
+                >
                   <td>
-                    <strong>{anomaly.site_id}</strong>
-                    <div className="site-name">{anomaly.site_name}</div>
+                    {anomaly.site_id}
+
+                    {anomaly.site_name && (
+                      <div>
+                        {anomaly.site_name}
+                      </div>
+                    )}
                   </td>
 
-                  <td>{anomaly.region}</td>
-                  <td>{anomaly.technology}</td>
-                  <td>{anomaly.timestamp}</td>
-                  <td>{anomaly.main_kpi}</td>
-
                   <td>
-                    <span
-                      className={`severity-badge ${anomaly.severity.toLowerCase()}`}
-                    >
-                      {anomaly.severity}
-                    </span>
+                    {anomaly.region ??
+                      anomaly.region_name ??
+                      "-"}
                   </td>
 
-                  <td className="explanation">{anomaly.explanation}</td>
+                  <td>
+                    {anomaly.technology ?? "-"}
+                  </td>
+
+                  <td>
+                    {anomaly.detected_time ??
+                      anomaly.timestamp ??
+                      "-"}
+                  </td>
+
+                  <td>
+                    {anomaly.main_kpi ??
+                      anomaly.anomaly_type ??
+                      "-"}
+                  </td>
+
+                  <td>
+                    {anomaly.severity}
+                  </td>
+
+                  <td>
+                    {anomaly.explanation ?? "-"}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -290,4 +832,7 @@ function App() {
   );
 }
 
+
 export default App;
+
+
