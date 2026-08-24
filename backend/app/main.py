@@ -30,9 +30,26 @@ app.add_middleware(
 
 @app.get("/api/health")
 def health_check():
-    return {
-        "status": "ok"
-    }
+    try:
+        connection = get_db_connection()
+
+        measurements = connection.execute(
+            "SELECT COUNT(*) FROM kpi_measurements"
+        ).fetchone()[0]
+
+        connection.close()
+
+        return {
+            "status": "ok",
+            "database": "connected",
+            "measurements": measurements
+        }
+
+    except Exception:
+        raise HTTPException(
+            status_code=503,
+            detail="Database not available. Run scripts/import_csv_to_sqlite.py first."
+        )
 
 
 @app.get("/api/sites")
